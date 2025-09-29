@@ -203,4 +203,4 @@ for key, fdict in sorted(grouped_files.items()):
     )
 
 if not success:
-    raise Exception("Some comparison failed check above.")
+    raise AssertionError("One or more benchmark result comparisons failed. Check logs above for details.")

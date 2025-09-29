@@ -34,7 +34,8 @@ def time_operation(
 
     # Save result to parquet file and compute hash
     result_hash = None
-    assert result is not None, "Can't allow any failure"
+    if result is None:
+        raise ValueError("Operation returned None, which is not allowed.")
 
     # Create outputs/results directory if it doesn't exist
     results_dir = "outputs/results"
@@ -59,11 +60,11 @@ def time_operation(
         else:
             # Scalar value
             temp_df = df_lib.DataFrame({"result": [result]})
-        temp_df.to_parquet(output_filename, index=True)
+        temp_df.to_parquet(output_filename, index=False)
 
     # Compute hash of the saved file for consistency verification
     with open(output_filename, "rb") as f:
-        result_hash = hashlib.md5(f.read()).hexdigest()
+        result_hash = hashlib.sha256(f.read()).hexdigest()
 
     return {
         "operation": operation_name,
