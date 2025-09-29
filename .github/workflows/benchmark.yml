@@ -1,0 +1,142 @@
+name: Dataframe Benchmarking
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:  # Allow manual trigger
+  schedule:
+    # Run weekly on Sundays at 06:00 UTC
+    - cron: '0 6 * * 0'
+
+jobs:
+  benchmark:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python with uv
+      uses: astral-sh/setup-uv@v3
+      with:
+        enable-cache: true
+        cache-dependency-glob: "requirements.in"
+
+    - name: Set up Python
+      run: uv python install
+
+    - name: Install system dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y bc
+
+    - name: Run benchmark suite
+      run: |
+        # Make run.sh executable
+        chmod +x run.sh
+        
+        # Run the benchmark suite
+        bash run.sh
+      env:
+        # Set environment variable to indicate GitHub Actions
+        GITHUB_ACTIONS: true
+
+    - name: Display Summary Statistics
+      run: |
+        echo "::group::Summary Statistics"
+        if [ -f "outputs/summary_statistics.md" ]; then
+          cat outputs/summary_statistics.md
+        else
+          echo "Summary statistics file not found"
+        fi
+        echo "::endgroup::"
+
+    - name: Prepare benchmark artifacts
+      run: |
+        # Create a comprehensive benchmark report
+        mkdir -p benchmark-results
+        
+        # Copy all output files
+        cp -r outputs/* benchmark-results/ 2>/dev/null || true
+        cp -r artifacts/* benchmark-results/ 2>/dev/null || true
+        
+        # Create a summary report
+        cat > benchmark-results/README.md << 'EOF'
+        # Dataframe Benchmarking Results
+        
+        This directory contains the complete results from the dataframe benchmarking suite.
+        
+        ## Files Description
+        
+        ### Performance Results
+        - `comparison_table.csv` - Main performance comparison across frameworks
+        - `summary_statistics.csv` - Statistical summary of benchmark results
+        - `summary_statistics.md` - Markdown formatted summary statistics
+        - `speedup_comparison.csv` - Relative performance metrics (if available)
+        - `cache_effectiveness.csv` - Cache performance analysis (if available)
+        
+        ### Data Verification
+        - `hash_comparison.csv` - Hash comparison for result verification
+        - `processed_raw_data.csv` - Raw benchmark data
+        
+        ### Detailed Results
+        - `results/` - Individual operation results by framework
+        
+        ### Profiling Data
+        - `pyinstrument/` - Detailed profiling reports (HTML format)
+        
+        ### Environment Info
+        - `requirements_*.txt` - Python environment details and package versions
+        
+        ## Frameworks Tested
+        
+        - **pandas**: Traditional dataframe library
+        - **fireducks**: High-performance pandas-compatible library  
+        - **polars**: Fast dataframes with lazy evaluation
+        
+        ## Benchmark Operations
+        
+        The suite tests 23 different operations including:
+        - Basic filtering and aggregations
+        - Complex multi-table joins
+        - Window functions and rolling operations
+        - String and datetime operations
+        - Statistical computations
+        - Large data concatenation and sorting
+        
+        Generated on: $(date -u '+%Y-%m-%d %H:%M:%S UTC')
+        Commit: $GITHUB_SHA
+        Workflow: $GITHUB_RUN_ID
+        EOF
+
+    - name: Upload benchmark results
+      uses: actions/upload-artifact@v4
+      with:
+        name: benchmark-results-${{ github.run_id }}
+        path: benchmark-results/
+        retention-days: 30
+        compression-level: 6
+
+    - name: Upload profiling reports
+      uses: actions/upload-artifact@v4
+      with:
+        name: profiling-reports-${{ github.run_id }}
+        path: outputs/pyinstrument/
+        retention-days: 30
+        compression-level: 6
+      if: always()
+
+    - name: Summary
+      run: |
+        echo "::notice title=Benchmark Complete::Benchmark suite completed successfully! Check the artifacts for detailed results."
+        
+        # Display summary statistics if available
+        if [ -f "outputs/summary_statistics.md" ]; then
+          echo "::group::Summary Statistics"
+          cat outputs/summary_statistics.md
+          echo "::endgroup::"
+        else
+          echo "Summary statistics file not found"
+        fi
