@@ -60,7 +60,7 @@ def time_operation(
         else:
             # Scalar value
             temp_df = df_lib.DataFrame({"result": [result]})
-        temp_df.to_parquet(output_filename, index=True)
+        temp_df.to_parquet(output_filename, index=False)
 
     # Compute hash of the saved file for consistency verification
     with open(output_filename, "rb") as f:
