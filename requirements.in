@@ -1,0 +1,14 @@
+# Framewokrs:
+pandas
+polars
+fireducks
+
+# Linting/formatting:
+ruff
+ty
+
+# Time instrumentation
+pyinstrument
+
+# Subdependencies:
+tabulate
