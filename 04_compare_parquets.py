@@ -28,7 +28,7 @@ def group_files_by_operation(path):
                 break
 
         if framework_found is None:
-            raise Exception(f"Unknown or missing framework in file: {file.name}")
+            raise ValueError(f"Unknown or missing framework in file: {file.name}")
 
         files_grouped.setdefault(operation_key, {})[framework_found] = file
 
