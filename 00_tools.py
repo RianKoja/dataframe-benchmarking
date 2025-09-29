@@ -64,7 +64,7 @@ def time_operation(
 
     # Compute hash of the saved file for consistency verification
     with open(output_filename, "rb") as f:
-        result_hash = hashlib.md5(f.read()).hexdigest()
+        result_hash = hashlib.sha256(f.read()).hexdigest()
 
     return {
         "operation": operation_name,
