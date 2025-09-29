@@ -45,7 +45,7 @@ def time_operation(
     output_filename = f"{results_dir}/{operation_name}_{framework}.parquet"
 
     if hasattr(result, "to_frame"):
-        result = result.to_frame(name="operation_name")
+        result = result.to_frame(name=operation_name)
 
     if hasattr(result, "to_parquet"):
         result.to_parquet(output_filename, index=False)
