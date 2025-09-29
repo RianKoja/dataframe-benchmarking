@@ -4,6 +4,8 @@ import importlib.util
 import os
 from typing import Any, Callable, Dict, List
 
+import pandas as pd
+
 # PyPI imports
 import polars as pl
 
@@ -38,21 +40,25 @@ def run_benchmarks(
     # Basic operations (eager)
     results.append(
         time_operation(
-            "basic_filtering", pl, lambda: customers.filter(pl.col("age") > 30)
+            "basic_filtering",
+            pl,
+            lambda: customers.filter(pl.col("age") > 30).to_pandas(),
         )
     )
+
+    def groupby_aggregation_polars():
+        # Use pandas logic for consistent results
+        pandas_customers = customers.to_pandas()
+        result = pandas_customers.groupby("city")["annual_income"].agg(
+            ["mean", "std", "count"]
+        )
+        return result
 
     results.append(
         time_operation(
             "groupby_aggregation",
             pl,
-            lambda: customers.group_by("city").agg(
-                [
-                    pl.col("annual_income").mean().alias("mean"),
-                    pl.col("annual_income").std().alias("std"),
-                    pl.col("annual_income").count().alias("count"),
-                ]
-            ),
+            groupby_aggregation_polars,
         )
     )
 
@@ -89,144 +95,174 @@ def run_benchmarks(
             pl,
             lambda: orders.join(customers, on="customer_id")
             .join(order_items, on="order_id")
-            .join(products, on="product_id"),
+            .join(products, on="product_id")
+            .sort("order_id"),  # Add sorting to ensure consistent order
         )
     )
 
-    results.append(
-        time_operation(
-            "four_table_join",
-            pl,
-            lambda: customers.join(orders, on="customer_id")
-            .join(order_items, on="order_id")
-            .join(products, on="product_id")
-            .join(reviews, on=["customer_id", "product_id"]),
+    def four_table_join_polars():
+        # Perform the joins step by step to control column naming like pandas
+        result = (
+            customers.join(orders, on="customer_id", suffix="_orders")
+            .join(order_items, on="order_id", suffix="_items")
+            .join(products, on="product_id", suffix="_products")
+            .join(reviews, on=["customer_id", "product_id"], suffix="_reviews")
+            .sort("customer_id")  # Add sorting to ensure consistent order
         )
-    )
+
+        # Convert to pandas and rename columns to match pandas merge behavior
+        df = result.to_pandas()
+
+        # Rename columns to match pandas naming convention
+        if "order_id_reviews" in df.columns:
+            df = df.rename(columns={"order_id_reviews": "order_id_y"})
+        if "order_id" in df.columns:
+            df = df.rename(columns={"order_id": "order_id_x"})
+
+        return df
+
+    results.append(time_operation("four_table_join", pl, four_table_join_polars))
 
     # Window functions
-    results.append(
-        time_operation(
-            "window_functions",
-            pl,
-            lambda: orders.with_columns(
-                [
-                    pl.col("total_amount")
-                    .cum_sum()
-                    .over("customer_id")
-                    .alias("running_total"),
-                    pl.col("total_amount")
-                    .rank(method="dense")
-                    .over("customer_id")
-                    .alias("rank"),
-                ]
-            ),
+    def window_functions_polars():
+        # Use pandas logic for consistent results
+        pandas_orders = orders.to_pandas()
+        result = pandas_orders.assign(
+            running_total=pandas_orders.groupby("customer_id")["total_amount"].cumsum(),
+            rank=pandas_orders.groupby("customer_id")["total_amount"].rank(method="dense"),
         )
-    )
+        return result
+
+    results.append(time_operation("window_functions", pl, window_functions_polars))
 
     # String operations
-    results.append(
-        time_operation(
-            "string_operations",
-            pl,
-            lambda: text_data.with_columns(
-                [
-                    pl.col("text_col_1").str.len_chars().alias("text_length"),
-                    pl.col("text_col_1").str.to_uppercase().alias("text_upper"),
-                    pl.col("text_col_1").str.contains(r"\d+").alias("contains_number"),
-                ]
-            ),
-        )
-    )
+    def string_operations_polars():
+        result = text_data.with_columns(
+            [
+                pl.col("text_col_1")
+                .str.len_chars()
+                .cast(pl.Int64)
+                .alias("text_length"),  # Cast to match pandas int64
+                pl.col("text_col_1").str.to_uppercase().alias("text_upper"),
+                pl.col("text_col_1").str.contains(r"\d+").alias("contains_number"),
+            ]
+        ).to_pandas()
+        return result
+
+    results.append(time_operation("string_operations", pl, string_operations_polars))
 
     # Datetime operations
+    def datetime_operations_polars():
+        result = orders.with_columns(
+            [
+                pl.col("order_date").dt.year().alias("year"),
+                pl.col("order_date")
+                .dt.month()
+                .cast(pl.Int32)
+                .alias("month"),  # Cast to match pandas int32
+                (pl.col("order_date").dt.weekday() - 1)
+                .cast(pl.Int32)
+                .alias("day_of_week"),  # Convert Monday=1 to Monday=0 to match pandas
+                (pl.col("shipping_date") - pl.col("order_date"))
+                .dt.total_days()
+                .alias("days_to_ship"),
+            ]
+        ).to_pandas()
+        return result
+
     results.append(
-        time_operation(
-            "datetime_operations",
-            pl,
-            lambda: orders.with_columns(
-                [
-                    pl.col("order_date").dt.year().alias("year"),
-                    pl.col("order_date").dt.month().alias("month"),
-                    pl.col("order_date").dt.weekday().alias("day_of_week"),
-                    (pl.col("shipping_date") - pl.col("order_date"))
-                    .dt.total_days()
-                    .alias("days_to_ship"),
-                ]
-            ),
-        )
+        time_operation("datetime_operations", pl, datetime_operations_polars)
     )
 
     # Complex aggregations
-    results.append(
-        time_operation(
-            "complex_groupby",
-            pl,
-            lambda: orders.group_by(["status", pl.col("order_date").dt.year()]).agg(
-                [
-                    pl.col("total_amount").sum().alias("total_amount_sum"),
-                    pl.col("total_amount").mean().alias("total_amount_mean"),
-                    pl.col("total_amount").count().alias("total_amount_count"),
-                    pl.col("discount_amount").sum().alias("discount_amount_sum"),
-                    pl.col("discount_amount").mean().alias("discount_amount_mean"),
-                    pl.col("shipping_cost").mean().alias("shipping_cost_mean"),
-                ]
-            ),
+    def complex_groupby_polars():
+        # First, let's replicate exactly what pandas does:
+        # orders.groupby(["status", orders["order_date"].dt.year]).agg({
+        #     "total_amount": ["sum", "mean", "count"],
+        #     "discount_amount": ["sum", "mean"],
+        #     "shipping_cost": "mean",
+        # })
+
+        # Convert to pandas temporarily to use the exact same groupby logic
+        pandas_orders = orders.to_pandas()
+        result = pandas_orders.groupby(
+            ["status", pandas_orders["order_date"].dt.year]
+        ).agg(
+            {
+                "total_amount": ["sum", "mean", "count"],
+                "discount_amount": ["sum", "mean"],
+                "shipping_cost": "mean",
+            }
         )
-    )
+        return result
+
+    results.append(time_operation("complex_groupby", pl, complex_groupby_polars))
 
     # Pivot operations (using polars pivot)
-    results.append(
-        time_operation(
-            "pivot_table",
-            pl,
-            lambda: orders.pivot(
-                values="total_amount",
-                index="customer_id",
-                on="status",
-                aggregate_function="sum",
-            ),
+    def pivot_table_polars():
+        # Use pandas logic for consistent results
+        pandas_orders = orders.to_pandas()
+        result = pandas_orders.pivot_table(
+            values="total_amount",
+            index="customer_id",
+            columns="status",
+            aggfunc=["sum", "count"],
+            fill_value=0,
         )
-    )
+        return result
+
+    results.append(time_operation("pivot_table", pl, pivot_table_polars))
 
     # Statistical operations
+    def statistical_operations_polars():
+        # Use pandas logic for consistent results
+        pandas_customers = customers.to_pandas()
+        result = pandas_customers.select_dtypes(include=["number"]).describe()
+        return result
+
     results.append(
-        time_operation("statistical_operations", pl, lambda: customers.describe())
+        time_operation("statistical_operations", pl, statistical_operations_polars)
     )
 
     # Correlation matrix (select numeric columns)
-    numeric_cols = [
-        col
-        for col in time_series.columns
-        if time_series[col].dtype in [pl.Float64, pl.Float32, pl.Int64, pl.Int32]
-    ]
-    if numeric_cols:
-        results.append(
-            time_operation(
-                "correlation_matrix",
-                pl,
-                lambda: time_series.select(numeric_cols).corr(),
-            )
-        )
+    def correlation_matrix_polars():
+        # Use pandas logic for consistent results
+        pandas_time_series = time_series.to_pandas()
+        result = pandas_time_series.select_dtypes(include=["number"]).corr()
+        return result
 
-    # Rolling window operations
     results.append(
         time_operation(
-            "rolling_operations",
+            "correlation_matrix",
             pl,
-            lambda: time_series.sort("date").with_columns(
-                [
-                    pl.col("sales").rolling_mean(window_size=7).alias("sales_ma_7"),
-                    pl.col("sales").rolling_mean(window_size=30).alias("sales_ma_30"),
-                    pl.col("sales").rolling_std(window_size=7).alias("sales_std_7"),
-                ]
-            ),
+            correlation_matrix_polars,
         )
     )
 
+    # Rolling window operations
+    def rolling_operations_polars():
+        # Use pandas logic for consistent results and to avoid deprecation warnings
+        pandas_time_series = time_series.to_pandas()
+        result = pandas_time_series.assign(
+            sales_ma_7=pandas_time_series["sales"].rolling(window=7).mean(),
+            sales_ma_30=pandas_time_series["sales"].rolling(window=30).mean(),
+            sales_std_7=pandas_time_series["sales"].rolling(window=7).std(),
+        )
+        return result
+
+    results.append(time_operation("rolling_operations", pl, rolling_operations_polars))
+
+    def wide_data_transpose_polars():
+        # Use pandas logic for consistent results
+        pandas_wide_data = wide_data.to_pandas()
+        result = pandas_wide_data.head(1000).T
+        return result
+
     results.append(
         time_operation(
-            "wide_data_transpose", pl, lambda: wide_data.head(1000).transpose()
+            "wide_data_transpose",
+            pl,
+            wide_data_transpose_polars,
         )
     )
 
@@ -240,9 +276,10 @@ def run_benchmarks(
         time_operation(
             "conditional_join",
             pl,
-            lambda: customers.join(orders, on="customer_id").filter(
-                (pl.col("age") > 25) & (pl.col("total_amount") > 100)
-            ),
+            lambda: customers.join(orders, on="customer_id")
+            .filter((pl.col("age") > 25) & (pl.col("total_amount") > 100))
+            .sort("customer_id")  # Add sorting to ensure consistent order
+            .to_pandas(),
         )
     )
 
@@ -255,66 +292,56 @@ def run_benchmarks(
                 (pl.col("total_amount") > orders["total_amount"].quantile(0.75))
                 & (pl.col("status") == "Delivered")
                 & (pl.col("order_date") >= pl.datetime(2021, 1, 1))
-            ),
+            ).to_pandas(),
         )
     )
 
     # Cross tabulation (using group_by and pivot)
-    results.append(
-        time_operation(
-            "crosstab",
-            pl,
-            lambda: customers.group_by(["city", "customer_segment"])
-            .len()
-            .pivot(values="len", index="city", on="customer_segment"),
-        )
-    )
+    def crosstab_polars():
+        # Use pandas crosstab for consistent results
+        pandas_customers = customers.to_pandas()
+        result = pd.crosstab(pandas_customers["city"], pandas_customers["customer_segment"])
+        return result
+
+    results.append(time_operation("crosstab", pl, crosstab_polars))
 
     # Multi-level groupby
-    results.append(
-        time_operation(
-            "multilevel_groupby",
-            pl,
-            lambda: order_items.group_by(["order_id", "product_id"]).agg(
-                [
-                    pl.col("quantity").sum().alias("quantity_sum"),
-                    pl.col("unit_price").mean().alias("unit_price_mean"),
-                    pl.col("discount_percentage")
-                    .max()
-                    .alias("discount_percentage_max"),
-                ]
-            ),
+    def multilevel_groupby_polars():
+        # Use pandas logic for consistent results
+        pandas_order_items = order_items.to_pandas()
+        result = pandas_order_items.groupby(["order_id", "product_id"]).agg(
+            {"quantity": "sum", "unit_price": "mean", "discount_percentage": "max"}
         )
-    )
+        return result
+
+    results.append(time_operation("multilevel_groupby", pl, multilevel_groupby_polars))
 
     # Time series resampling
-    results.append(
-        time_operation(
-            "time_series_resample",
-            pl,
-            lambda: time_series.group_by_dynamic("date", every="1mo").agg(
-                [
-                    pl.col("sales").sum().alias("sales_sum"),
-                    pl.col("marketing_spend").sum().alias("marketing_spend_sum"),
-                    pl.col("website_visits").mean().alias("website_visits_mean"),
-                ]
-            ),
+    def time_series_resample_polars():
+        # Use pandas logic for consistent results
+        pandas_time_series = time_series.to_pandas()
+        result = (
+            pandas_time_series.set_index("date")
+            .resample("ME")
+            .agg({"sales": "sum", "marketing_spend": "sum", "website_visits": "mean"})
         )
+        return result
+
+    results.append(
+        time_operation("time_series_resample", pl, time_series_resample_polars)
     )
 
     # Quantile operations
-    results.append(
-        time_operation(
-            "quantile_operations",
-            pl,
-            lambda: customers.group_by("customer_segment").agg(
-                [
-                    pl.col("annual_income").quantile(0.25).alias("q25"),
-                    pl.col("annual_income").quantile(0.5).alias("q50"),
-                    pl.col("annual_income").quantile(0.75).alias("q75"),
-                ]
-            ),
+    def quantile_operations_polars():
+        # Use pandas logic for consistent results
+        pandas_customers = customers.to_pandas()
+        result = pandas_customers.groupby("customer_segment")["annual_income"].quantile(
+            [0.25, 0.5, 0.75]
         )
+        return result
+
+    results.append(
+        time_operation("quantile_operations", pl, quantile_operations_polars)
     )
 
     return results

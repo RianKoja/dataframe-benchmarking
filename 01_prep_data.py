@@ -45,7 +45,7 @@ def create_datasets() -> None:
                 n_customers,
             ),
             "registration_date": pd.date_range(
-                "2020-01-01", periods=n_customers, freq="1H"
+                "2020-01-01", periods=n_customers, freq="1h"
             ),
             "annual_income": np.random.normal(50000, 20000, n_customers),
             "customer_segment": np.random.choice(

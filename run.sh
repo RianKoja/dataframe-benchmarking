@@ -31,6 +31,24 @@ run_timed() {
     return $exit_code
 }
 
+# Function to run a Python command with pyinstrument profiling
+run_python_profiled() {
+    local name="$1"
+    local python_script="$2"
+    local args="${3:-}"
+    
+    # Create pyinstrument output directory
+    mkdir -p outputs/pyinstrument
+    
+    # Create a safe filename for the profiling output
+    local safe_name=$(echo "$name" | sed 's/[^a-zA-Z0-9._-]/_/g')
+    local profile_output="outputs/pyinstrument/${safe_name}_profile.html"
+    
+    # Run with pyinstrument profiling
+    local full_cmd="pyinstrument -r html -o \"$profile_output\" $python_script $args"
+    run_timed "$name" "$full_cmd"
+}
+
 # Set up environment
 echo "Setting up virtual environment..."
 uv venv 
@@ -55,7 +73,7 @@ rm -rf artifacts/* data/* outputs/* ___pycache__
 # Check if input data exists, else create it
 if [ ! -d "data" ] || [ -z "$(ls -A data 2>/dev/null)" ]; then
     echo "Data directory is empty or doesn't exist. Creating datasets..."
-    run_timed "Data Preparation" "python 01_prep_data.py"
+    run_python_profiled "Data Preparation" "01_prep_data.py" ""
 else
     echo "Data directory exists and contains files. Skipping data preparation."
 fi
@@ -74,28 +92,28 @@ echo "=========================="
 
 # Run all cases with and without cache
 rm -rf __pycache__
-run_timed "Pandas (no cache)" "python 02_benchmark.py pandas"
-run_timed "Pandas (with cache)" "python 02_benchmark.py pandas --cache"
+run_python_profiled "Pandas (no cache)" "02_benchmark.py" "pandas"
+run_python_profiled "Pandas (with cache)" "02_benchmark.py" "pandas --cache"
 rm -rf __pycache__
-run_timed "Fireducks (no cache)" "python 02_benchmark.py fireducks"
-run_timed "Fireducks (with cache)" "python 02_benchmark.py fireducks --cache"
+run_python_profiled "Fireducks (no cache)" "02_benchmark.py" "fireducks"
+run_python_profiled "Fireducks (with cache)" "02_benchmark.py" "fireducks --cache"
 rm -rf __pycache__
-run_timed "Polars (no cache)" "python 03_polars.py"
-run_timed "Polars (with cache)" "python 03_polars.py --cache"
+run_python_profiled "Polars (no cache)" "03_polars.py" ""
+run_python_profiled "Polars (with cache)" "03_polars.py" "--cache"
 
 echo ""
 echo "All benchmarks completed. Running result comparison..."
 echo "====================================================="
 
 # Compare parquet results for accuracy verification
-run_timed "Result Comparison" "python 04_compare_parquets.py"
+run_python_profiled "Result Comparison" "04_compare_parquets.py" ""
 
 echo ""
 echo "Running performance analysis..."
 echo "==============================="
 
 # Run analyzer
-run_timed "Analysis" "python 05_comparison.py"
+run_python_profiled "Analysis" "05_comparison.py" ""
 
 echo ""
 echo "==============================================="

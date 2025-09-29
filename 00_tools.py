@@ -43,17 +43,13 @@ def time_operation(
     # Save result to parquet file
     output_filename = f"{results_dir}/{operation_name}_{framework}.parquet"
 
-    if hasattr(result, "to_parquet"):
-        # DataFrame or Series
-        result.to_parquet(output_filename, index=True)
-    elif hasattr(result, "to_pandas"):
-        # Polars DataFrame/Series or FireDucks DataFrame/Series - convert to pandas
-        import pandas as pd
+    if hasattr(result, "to_frame"):
+        result = result.to_frame(name="operation_name")
 
-        df_pd = result.to_pandas()
-        if isinstance(df_pd, pd.Series):
-            df_pd = df_pd.to_frame()
-        df_pd.to_parquet(output_filename, index=True)
+    if hasattr(result, "to_parquet"):
+        result.to_parquet(output_filename, index=False)
+    elif hasattr(result, "write_parquet"):
+        result.write_parquet(output_filename)
     else:
         # Handle other types (scalars, arrays, etc.)
         # by converting to DataFrame

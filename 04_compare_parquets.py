@@ -37,12 +37,12 @@ def group_files_by_operation(path):
 def compare_dataframes(df1, df2, label1, label2):
     """
     Compares two DataFrames and prints differences in markdown format.
-    
+
     Returns:
         bool: True if DataFrames are equal, False otherwise.
     """
     print(f"Comparing {label1} vs {label2}:")
-    
+
     # Check that columns match
     if (set1 := set(df1.columns)) != (set2 := set(df2.columns)):
         print("⚠️ Columns differ:")
@@ -56,26 +56,26 @@ def compare_dataframes(df1, df2, label1, label2):
         print(f"⚠️ Row count differs: {len(df1)} vs {len(df2)}")
         print()
         return False
-    
+
     # Check that data types match for common columns
     type_mismatches = []
     for col in df1.columns:
         if df1[col].dtype != df2[col].dtype:
             type_mismatches.append((col, df1[col].dtype, df2[col].dtype))
-    
+
     if type_mismatches:
         print("⚠️ Data type mismatches:")
         for col, dtype1, dtype2 in type_mismatches:
             print(f"  {col}: {dtype1} vs {dtype2}")
         print()
         return False
-    
+
     # Check index equality
     if not df1.index.equals(df2.index):
         print("⚠️ Index differs between DataFrames")
         print()
         return False
-    
+
     # Compare actual values
     # The compare method requires dataframes to be sorted for consistent results
     # if the index is not aligned. We assume the index is meaningful and don't sort.
@@ -89,7 +89,7 @@ def compare_dataframes(df1, df2, label1, label2):
             print(f"⚠️ Value differences found between {label1} and {label2}:")
             # The output of compare has multi-level columns ('self', 'other')
             # which is useful for seeing the changes side-by-side.
-            print(diff.to_markdown())
+            print(diff.head().to_markdown())
             print()
             return False
     except Exception as e:
