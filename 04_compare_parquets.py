@@ -65,13 +65,33 @@ def compare_dataframes(df1, df2, label1, label2):
         print(f"⚠️ DataFrames differ between {label1} and {label2}:")
         print(f"  {str(e)}")
 
-        # Show detailed comparison for debugging if DataFrames have same structure
+        # Show detailed comparison for debugging with comprehensive checks
         try:
-            if df1.shape == df2.shape and list(df1.columns) == list(df2.columns):
-                diff = df1.compare(df2, align_axis=1)
-                if not diff.empty:
-                    print("\nDetailed comparison (first 5 rows):")
-                    print(diff.head().to_markdown())
+            # Check that columns match
+            if (set1 := set(df1.columns)) != (set2 := set(df2.columns)):
+                print("⚠️ Columns differ:")
+                print(f"  Only in {label1}: {set1 - set2}")
+                print(f"  Only in {label2}: {set2 - set1}")
+            # Check that length matches
+            elif len(df1) != len(df2):
+                print(f"⚠️ Row count differs: {len(df1)} vs {len(df2)}")
+            else:
+                # Check that data types match for common columns
+                type_mismatches = []
+                for col in df1.columns:
+                    if df1[col].dtype != df2[col].dtype:
+                        type_mismatches.append((col, df1[col].dtype, df2[col].dtype))
+
+                if type_mismatches:
+                    print("⚠️ Data type mismatches:")
+                    for col, dtype1, dtype2 in type_mismatches:
+                        print(f"  {col}: {dtype1} vs {dtype2}")
+                else:
+                    # Only try detailed comparison if basic structure matches
+                    diff = df1.compare(df2, align_axis=1)
+                    if not diff.empty:
+                        print("\nDetailed comparison (first 5 rows):")
+                        print(diff.head().to_markdown())
         except Exception:
             pass  # Skip detailed comparison if it fails
 
