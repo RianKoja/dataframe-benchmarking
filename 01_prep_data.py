@@ -188,15 +188,17 @@ def create_datasets() -> None:
 def load_data(df_lib: Any) -> Dict[str, Any]:
     """Load all datasets"""
     print(f"Loading data with {df_lib.__name__}")
-    data = {}
-    data["customers"] = df_lib.read_parquet("data/customers.parquet")
-    data["products"] = df_lib.read_parquet("data/products.parquet")
-    data["orders"] = df_lib.read_parquet("data/orders.parquet")
-    data["order_items"] = df_lib.read_parquet("data/order_items.parquet")
-    data["reviews"] = df_lib.read_parquet("data/reviews.parquet")
-    data["time_series"] = df_lib.read_parquet("data/time_series.parquet")
-    data["wide_data"] = df_lib.read_parquet("data/wide_data.parquet")
-    data["text_data"] = df_lib.read_parquet("data/text_data.parquet")
+    data_files = [
+        "customers",
+        "products",
+        "orders",
+        "order_items",
+        "reviews",
+        "time_series",
+        "wide_data",
+        "text_data",
+    ]
+    data = {name: df_lib.read_parquet(f"data/{name}.parquet") for name in data_files}
     return data
 
 

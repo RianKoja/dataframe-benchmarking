@@ -48,11 +48,15 @@ def run_benchmarks(
 
     def groupby_aggregation_polars():
         # Use Polars native group_by and aggregation
-        result_pl = customers.group_by("city").agg(
-            pl.mean("annual_income").alias("mean"),
-            pl.std("annual_income").alias("std"),
-            pl.count("annual_income").alias("count"),
-        ).sort("city")
+        result_pl = (
+            customers.group_by("city")
+            .agg(
+                pl.mean("annual_income").alias("mean"),
+                pl.std("annual_income").alias("std"),
+                pl.count("annual_income").alias("count"),
+            )
+            .sort("city")
+        )
         # Convert to pandas DataFrame with city as index to match pandas output
         return result_pl.to_pandas().set_index("city")
 
@@ -135,10 +139,15 @@ def run_benchmarks(
 
     # Window functions
     def window_functions_polars():
-        # Use Polars native window functions. Cast rank to float to match pandas output dtype.
+        # Use Polars native window functions.
+        # Cast rank to float to match pandas output dtype.
         result = orders.with_columns(
-            pl.col("total_amount").cumsum().over("customer_id").alias("running_total"),
-            pl.col("total_amount").rank(method="dense").over("customer_id").cast(pl.Float64).alias("rank"),
+            pl.col("total_amount").cum_sum().over("customer_id").alias("running_total"),
+            pl.col("total_amount")
+            .rank(method="dense")
+            .over("customer_id")
+            .cast(pl.Float64)
+            .alias("rank"),
         )
         return result
 

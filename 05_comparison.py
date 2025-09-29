@@ -395,13 +395,13 @@ def print_analysis_report(tables: Dict[str, Any]) -> None:
 
 def generate_summary_statistics_markdown(summary_stats: pd.DataFrame) -> str:
     """Generate markdown formatted summary statistics"""
-    
+
     markdown = "# Summary Statistics\n\n"
     markdown += "## Framework Performance Overview\n\n"
-    
+
     # Convert to markdown table
     markdown += summary_stats.to_markdown() + "\n\n"
-    
+
     # Add some interpretation
     markdown += "## Key Metrics Explanation\n\n"
     markdown += "- **count**: Number of operations benchmarked\n"
@@ -411,13 +411,13 @@ def generate_summary_statistics_markdown(summary_stats: pd.DataFrame) -> str:
     markdown += "- **min**: Fastest operation time (seconds)\n"
     markdown += "- **max**: Slowest operation time (seconds)\n"
     markdown += "- **sum**: Total execution time for all operations (seconds)\n\n"
-    
+
     # Add ranking based on mean performance
     mean_times = summary_stats.groupby("framework")["mean"].mean().sort_values()
     markdown += "## Performance Ranking (by average execution time)\n\n"
     for i, (framework, avg_time) in enumerate(mean_times.items(), 1):
         markdown += f"{i}. **{framework}**: {avg_time:.4f} seconds\n"
-    
+
     return markdown
 
 
@@ -433,7 +433,7 @@ def save_results_to_files(tables: Dict[str, Any]) -> None:
     # Save summary statistics
     tables["summary_stats"].to_csv(output_dir / "summary_statistics.csv")
     print("✓ Saved summary statistics to outputs/summary_statistics.csv")
-    
+
     # Save summary statistics as markdown
     summary_markdown = generate_summary_statistics_markdown(tables["summary_stats"])
     with open(output_dir / "summary_statistics.md", "w") as f:
