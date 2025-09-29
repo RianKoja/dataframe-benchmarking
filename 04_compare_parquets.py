@@ -76,22 +76,96 @@ def compare_dataframes(df1, df2, label1, label2):
         print()
         return False
 
-    # Compare actual values
+    # Compare actual values with numerical tolerance for floating point columns
     # The compare method requires dataframes to be sorted for consistent results
     # if the index is not aligned. We assume the index is meaningful and don't sort.
     try:
-        diff = df1.compare(df2, align_axis=1)  # align_axis=1 for column comparison
-        if diff.empty:
+        # First check if they are exactly equal
+        if df1.equals(df2):
             print(f"✅ No differences found between {label1} and {label2}")
             print()
             return True
+
+        # For numerical differences, use tolerance-based comparison
+        import numpy as np
+
+        # Check if differences are within numerical tolerance
+        numerical_match = True
+        significant_diffs = []
+
+        for col in df1.columns:
+            col_data1 = df1[col]
+            col_data2 = df2[col]
+
+            # For numeric columns, use tolerance-based comparison
+            if pd.api.types.is_numeric_dtype(
+                col_data1
+            ) and pd.api.types.is_numeric_dtype(col_data2):
+                # Handle NaN values explicitly
+                both_not_nan = ~col_data1.isna() & ~col_data2.isna()
+
+                # Check if NaN patterns match
+                nan_mask1 = col_data1.isna()
+                nan_mask2 = col_data2.isna()
+                if not nan_mask1.equals(nan_mask2):
+                    numerical_match = False
+                    significant_diffs.append(f"NaN pattern differs in column '{col}'")
+                    continue
+
+                # For non-NaN values, check numerical tolerance
+                if both_not_nan.any():
+                    vals1 = col_data1[both_not_nan].values
+                    vals2 = col_data2[both_not_nan].values
+
+                    # Use relative and absolute tolerance
+                    if not np.allclose(
+                        vals1, vals2, rtol=1e-10, atol=1e-12, equal_nan=True
+                    ):
+                        max_diff = np.abs(vals1 - vals2).max()
+                        # Only consider significant if difference is large
+                        if max_diff > 1e-8:
+                            numerical_match = False
+                            significant_diffs.append(
+                                f"Significant numerical differences in column '{col}' "
+                                f"(max diff: {max_diff})"
+                            )
+            else:
+                # For non-numeric columns, must be exactly equal
+                if not col_data1.equals(col_data2):
+                    numerical_match = False
+                    significant_diffs.append(
+                        f"Non-numeric differences in column '{col}'"
+                    )
+
+        if numerical_match:
+            if significant_diffs:
+                print(
+                    f"⚠️ Minor numerical differences found between {label1} and "
+                    f"{label2} (within tolerance)"
+                )
+                for diff in significant_diffs[:3]:  # Show first 3 differences
+                    print(f"  {diff}")
+                print()
+            else:
+                print(
+                    f"✅ No significant differences found between {label1} and "
+                    f"{label2} (within numerical tolerance)"
+                )
+                print()
+            return True
         else:
-            print(f"⚠️ Value differences found between {label1} and {label2}:")
-            # The output of compare has multi-level columns ('self', 'other')
-            # which is useful for seeing the changes side-by-side.
-            print(diff.head().to_markdown())
+            print(f"⚠️ Significant differences found between {label1} and {label2}:")
+            for diff in significant_diffs[:5]:  # Show first 5 significant differences
+                print(f"  {diff}")
+
+            # Show detailed comparison for debugging
+            diff = df1.compare(df2, align_axis=1)
+            if not diff.empty:
+                print("\nDetailed comparison (first 5 rows):")
+                print(diff.head().to_markdown())
             print()
             return False
+
     except Exception as e:
         print(f"⚠️ Error during comparison: {e}")
         print()

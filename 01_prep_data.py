@@ -118,7 +118,7 @@ def create_datasets() -> None:
             "order_id": np.random.randint(1, n_orders + 1, n_reviews),
             "rating": np.random.randint(1, 6, n_reviews),
             "review_text": [f"Review text {i}" for i in range(1, n_reviews + 1)],
-            "review_date": pd.date_range("2020-02-01", periods=n_reviews, freq="2H"),
+            "review_date": pd.date_range("2020-02-01", periods=n_reviews, freq="2h"),
             "helpful_votes": np.random.randint(0, 100, n_reviews),
         }
     )

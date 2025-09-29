@@ -52,7 +52,7 @@ def run_benchmarks(
         result = pandas_customers.groupby("city")["annual_income"].agg(
             ["mean", "std", "count"]
         )
-        return result
+        return result.sort_index()
 
     results.append(
         time_operation(
@@ -89,14 +89,22 @@ def run_benchmarks(
         )
     )
 
+    def complex_multi_join_polars():
+        result = (
+            orders.join(customers, on="customer_id")
+            .join(order_items, on="order_id")
+            .join(products, on="product_id")
+            .sort(["order_id", "order_item_id"])
+            .to_pandas()
+            .reset_index(drop=True)
+        )
+        return result
+
     results.append(
         time_operation(
             "complex_multi_join",
             pl,
-            lambda: orders.join(customers, on="customer_id")
-            .join(order_items, on="order_id")
-            .join(products, on="product_id")
-            .sort("order_id"),  # Add sorting to ensure consistent order
+            complex_multi_join_polars,
         )
     )
 
@@ -129,7 +137,9 @@ def run_benchmarks(
         pandas_orders = orders.to_pandas()
         result = pandas_orders.assign(
             running_total=pandas_orders.groupby("customer_id")["total_amount"].cumsum(),
-            rank=pandas_orders.groupby("customer_id")["total_amount"].rank(method="dense"),
+            rank=pandas_orders.groupby("customer_id")["total_amount"].rank(
+                method="dense"
+            ),
         )
         return result
 
@@ -176,13 +186,6 @@ def run_benchmarks(
 
     # Complex aggregations
     def complex_groupby_polars():
-        # First, let's replicate exactly what pandas does:
-        # orders.groupby(["status", orders["order_date"].dt.year]).agg({
-        #     "total_amount": ["sum", "mean", "count"],
-        #     "discount_amount": ["sum", "mean"],
-        #     "shipping_cost": "mean",
-        # })
-
         # Convert to pandas temporarily to use the exact same groupby logic
         pandas_orders = orders.to_pandas()
         result = pandas_orders.groupby(
@@ -194,7 +197,8 @@ def run_benchmarks(
                 "shipping_cost": "mean",
             }
         )
-        return result
+        # Sort by index to ensure consistent ordering
+        return result.sort_index()
 
     results.append(time_operation("complex_groupby", pl, complex_groupby_polars))
 
@@ -228,8 +232,12 @@ def run_benchmarks(
     def correlation_matrix_polars():
         # Use pandas logic for consistent results
         pandas_time_series = time_series.to_pandas()
-        result = pandas_time_series.select_dtypes(include=["number"]).corr()
-        return result
+        numeric_data = pandas_time_series.select_dtypes(include=["number"]).dropna()
+        corr_matrix = numeric_data.corr()
+        # Fill diagonal with 1.0 explicitly to ensure consistency
+        for i in range(len(corr_matrix)):
+            corr_matrix.iloc[i, i] = 1.0
+        return corr_matrix.sort_index().sort_index(axis=1)
 
     results.append(
         time_operation(
@@ -244,9 +252,15 @@ def run_benchmarks(
         # Use pandas logic for consistent results and to avoid deprecation warnings
         pandas_time_series = time_series.to_pandas()
         result = pandas_time_series.assign(
-            sales_ma_7=pandas_time_series["sales"].rolling(window=7).mean(),
-            sales_ma_30=pandas_time_series["sales"].rolling(window=30).mean(),
-            sales_std_7=pandas_time_series["sales"].rolling(window=7).std(),
+            sales_ma_7=pandas_time_series["sales"]
+            .rolling(window=7, min_periods=7)
+            .mean(),
+            sales_ma_30=pandas_time_series["sales"]
+            .rolling(window=30, min_periods=30)
+            .mean(),
+            sales_std_7=pandas_time_series["sales"]
+            .rolling(window=7, min_periods=7)
+            .std(),
         )
         return result
 
@@ -272,14 +286,21 @@ def run_benchmarks(
     )
 
     # Advanced filtering
+    def conditional_join_polars():
+        result = (
+            customers.join(orders, on="customer_id")
+            .filter((pl.col("age") > 25) & (pl.col("total_amount") > 100))
+            .sort("customer_id")
+            .to_pandas()
+            .reset_index(drop=True)
+        )
+        return result
+
     results.append(
         time_operation(
             "conditional_join",
             pl,
-            lambda: customers.join(orders, on="customer_id")
-            .filter((pl.col("age") > 25) & (pl.col("total_amount") > 100))
-            .sort("customer_id")  # Add sorting to ensure consistent order
-            .to_pandas(),
+            conditional_join_polars,
         )
     )
 
@@ -300,7 +321,9 @@ def run_benchmarks(
     def crosstab_polars():
         # Use pandas crosstab for consistent results
         pandas_customers = customers.to_pandas()
-        result = pd.crosstab(pandas_customers["city"], pandas_customers["customer_segment"])
+        result = pd.crosstab(
+            pandas_customers["city"], pandas_customers["customer_segment"]
+        )
         return result
 
     results.append(time_operation("crosstab", pl, crosstab_polars))

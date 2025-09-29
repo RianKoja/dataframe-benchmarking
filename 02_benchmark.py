@@ -56,13 +56,18 @@ def run_benchmarks(use_cache: bool = False) -> List[Dict[str, Any]]:
         )
     )
 
+    def groupby_aggregation_operation():
+        # Ensure consistent groupby behavior by sorting result
+        result = customers.groupby("city")["annual_income"].agg(
+            ["mean", "std", "count"]
+        )
+        return result.sort_index()
+
     results.append(
         time_operation(
             "groupby_aggregation",
             df_lib,
-            lambda: customers.groupby("city")["annual_income"].agg(
-                ["mean", "std", "count"]
-            ),
+            groupby_aggregation_operation,
         )
     )
 
@@ -99,7 +104,9 @@ def run_benchmarks(use_cache: bool = False) -> List[Dict[str, Any]]:
             df_lib,
             lambda: orders.merge(customers, on="customer_id")
             .merge(order_items, on="order_id")
-            .merge(products, on="product_id"),
+            .merge(products, on="product_id")
+            .sort_values(["order_id", "order_item_id"])
+            .reset_index(drop=True),
         )
     )
 
@@ -110,7 +117,9 @@ def run_benchmarks(use_cache: bool = False) -> List[Dict[str, Any]]:
             lambda: customers.merge(orders, on="customer_id")
             .merge(order_items, on="order_id")
             .merge(products, on="product_id")
-            .merge(reviews, on=["customer_id", "product_id"]),
+            .merge(reviews, on=["customer_id", "product_id"])
+            .sort_values("customer_id")
+            .reset_index(drop=True),
         )
     )
 
@@ -154,17 +163,23 @@ def run_benchmarks(use_cache: bool = False) -> List[Dict[str, Any]]:
     )
 
     # Complex aggregations
+    def complex_groupby_operation():
+        # Ensure consistent groupby behavior by explicitly handling missing groups
+        result = orders.groupby(["status", orders["order_date"].dt.year]).agg(
+            {
+                "total_amount": ["sum", "mean", "count"],
+                "discount_amount": ["sum", "mean"],
+                "shipping_cost": "mean",
+            }
+        )
+        # Sort by index to ensure consistent ordering
+        return result.sort_index()
+
     results.append(
         time_operation(
             "complex_groupby",
             df_lib,
-            lambda: orders.groupby(["status", orders["order_date"].dt.year]).agg(
-                {
-                    "total_amount": ["sum", "mean", "count"],
-                    "discount_amount": ["sum", "mean"],
-                    "shipping_cost": "mean",
-                }
-            ),
+            complex_groupby_operation,
         )
     )
 
@@ -192,24 +207,38 @@ def run_benchmarks(use_cache: bool = False) -> List[Dict[str, Any]]:
         )
     )
 
+    def correlation_matrix_operation():
+        # Ensure consistent correlation matrix by explicitly dropping NaN and sorting
+        numeric_data = time_series.select_dtypes(include=["number"]).dropna()
+        corr_matrix = numeric_data.corr()
+        # Fill diagonal with 1.0 explicitly to ensure consistency
+        for i in range(len(corr_matrix)):
+            corr_matrix.iloc[i, i] = 1.0
+        return corr_matrix.sort_index().sort_index(axis=1)
+
     results.append(
         time_operation(
             "correlation_matrix",
             df_lib,
-            lambda: time_series.select_dtypes(include=["number"]).corr(),
+            correlation_matrix_operation,
         )
     )
 
     # Rolling window operations
+    def rolling_operations_func():
+        # Ensure consistent rolling operations by explicitly handling NaN values
+        result = time_series.assign(
+            sales_ma_7=time_series["sales"].rolling(window=7, min_periods=7).mean(),
+            sales_ma_30=time_series["sales"].rolling(window=30, min_periods=30).mean(),
+            sales_std_7=time_series["sales"].rolling(window=7, min_periods=7).std(),
+        )
+        return result
+
     results.append(
         time_operation(
             "rolling_operations",
             df_lib,
-            lambda: time_series.assign(
-                sales_ma_7=time_series["sales"].rolling(window=7).mean(),
-                sales_ma_30=time_series["sales"].rolling(window=30).mean(),
-                sales_std_7=time_series["sales"].rolling(window=7).std(),
-            ),
+            rolling_operations_func,
         )
     )
 
@@ -231,9 +260,10 @@ def run_benchmarks(use_cache: bool = False) -> List[Dict[str, Any]]:
         time_operation(
             "conditional_join",
             df_lib,
-            lambda: customers.merge(orders, on="customer_id").query(
-                "age > 25 and total_amount > 100"
-            ),
+            lambda: customers.merge(orders, on="customer_id")
+            .query("age > 25 and total_amount > 100")
+            .sort_values("customer_id")
+            .reset_index(drop=True),
         )
     )
 

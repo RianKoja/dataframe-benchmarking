@@ -393,6 +393,34 @@ def print_analysis_report(tables: Dict[str, Any]) -> None:
         print("  - For large datasets: Consider memory efficiency and lazy evaluation")
 
 
+def generate_summary_statistics_markdown(summary_stats: pd.DataFrame) -> str:
+    """Generate markdown formatted summary statistics"""
+    
+    markdown = "# Summary Statistics\n\n"
+    markdown += "## Framework Performance Overview\n\n"
+    
+    # Convert to markdown table
+    markdown += summary_stats.to_markdown() + "\n\n"
+    
+    # Add some interpretation
+    markdown += "## Key Metrics Explanation\n\n"
+    markdown += "- **count**: Number of operations benchmarked\n"
+    markdown += "- **mean**: Average execution time (seconds)\n"
+    markdown += "- **median**: Median execution time (seconds)\n"
+    markdown += "- **std**: Standard deviation of execution times\n"
+    markdown += "- **min**: Fastest operation time (seconds)\n"
+    markdown += "- **max**: Slowest operation time (seconds)\n"
+    markdown += "- **sum**: Total execution time for all operations (seconds)\n\n"
+    
+    # Add ranking based on mean performance
+    mean_times = summary_stats.groupby("framework")["mean"].mean().sort_values()
+    markdown += "## Performance Ranking (by average execution time)\n\n"
+    for i, (framework, avg_time) in enumerate(mean_times.items(), 1):
+        markdown += f"{i}. **{framework}**: {avg_time:.4f} seconds\n"
+    
+    return markdown
+
+
 def save_results_to_files(tables: Dict[str, Any]) -> None:
     """Save analysis results to files"""
 
@@ -405,6 +433,12 @@ def save_results_to_files(tables: Dict[str, Any]) -> None:
     # Save summary statistics
     tables["summary_stats"].to_csv(output_dir / "summary_statistics.csv")
     print("✓ Saved summary statistics to outputs/summary_statistics.csv")
+    
+    # Save summary statistics as markdown
+    summary_markdown = generate_summary_statistics_markdown(tables["summary_stats"])
+    with open(output_dir / "summary_statistics.md", "w") as f:
+        f.write(summary_markdown)
+    print("✓ Saved summary statistics to outputs/summary_statistics.md")
 
     # Save speedup comparison if available
     if tables["speedup_comparison"] is not None:
@@ -426,6 +460,20 @@ def save_results_to_files(tables: Dict[str, Any]) -> None:
             output_dir / "hash_comparison.csv"
         )
         print("✓ Saved hash comparison to outputs/hash_comparison.csv")
+
+
+def display_summary_statistics_for_ci(output_dir: Path) -> None:
+    """Display summary statistics markdown for CI/GitHub Actions"""
+    
+    summary_file = output_dir / "summary_statistics.md"
+    if summary_file.exists():
+        print(f"\n{'=' * 80}")
+        print("SUMMARY STATISTICS (for CI)")
+        print("=" * 80)
+        with open(summary_file, "r") as f:
+            print(f.read())
+    else:
+        print("Summary statistics markdown file not found.")
 
 
 def main() -> None:
@@ -451,6 +499,11 @@ def main() -> None:
 
     # Save results to files
     save_results_to_files(tables)
+
+    # Display summary statistics for CI if in GitHub Actions
+    import os
+    if os.getenv('GITHUB_ACTIONS') == 'true':
+        display_summary_statistics_for_ci(Path("outputs"))
 
     print(f"\n{'=' * 80}")
     print("ANALYSIS COMPLETE")
