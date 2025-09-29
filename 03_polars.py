@@ -194,19 +194,45 @@ def run_benchmarks(
 
     # Complex aggregations
     def complex_groupby_polars():
-        # Convert to pandas temporarily to use the exact same groupby logic
-        pandas_orders = orders.to_pandas()
-        result = pandas_orders.groupby(
-            ["status", pandas_orders["order_date"].dt.year]
-        ).agg(
-            {
-                "total_amount": ["sum", "mean", "count"],
-                "discount_amount": ["sum", "mean"],
-                "shipping_cost": "mean",
-            }
+        # Use Polars native group_by operations
+        result_pl = (
+            orders.with_columns(pl.col("order_date").dt.year().alias("year"))
+            .group_by(["status", "year"])
+            .agg(
+                [
+                    pl.col("total_amount").sum().alias("total_amount_sum"),
+                    pl.col("total_amount").mean().alias("total_amount_mean"),
+                    pl.col("total_amount").count().alias("total_amount_count"),
+                    pl.col("discount_amount").sum().alias("discount_amount_sum"),
+                    pl.col("discount_amount").mean().alias("discount_amount_mean"),
+                    pl.col("shipping_cost").mean().alias("shipping_cost_mean"),
+                ]
+            )
+            .sort(["status", "year"])
         )
-        # Sort by index to ensure consistent ordering
-        return result.sort_index()
+
+        # Convert to pandas and reshape to match pandas groupby format with MultiIndex
+        df = result_pl.to_pandas()
+
+        # Create the MultiIndex structure that pandas groupby produces
+        import pandas as pd
+
+        # Reshape data to match pandas multi-level column format
+        data = {}
+        data[("total_amount", "sum")] = df["total_amount_sum"]
+        data[("total_amount", "mean")] = df["total_amount_mean"]
+        data[("total_amount", "count")] = df["total_amount_count"]
+        data[("discount_amount", "sum")] = df["discount_amount_sum"]
+        data[("discount_amount", "mean")] = df["discount_amount_mean"]
+        data[("shipping_cost", "mean")] = df["shipping_cost_mean"]
+
+        # Create result DataFrame with MultiIndex columns and MultiIndex index
+        result_df = pd.DataFrame(data)
+        result_df.index = pd.MultiIndex.from_arrays(
+            [df["status"], df["year"]], names=["status", "year"]
+        )
+
+        return result_df.sort_index()
 
     results.append(time_operation("complex_groupby", pl, complex_groupby_polars))
 

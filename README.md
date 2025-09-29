@@ -18,6 +18,8 @@ I suspected `__pycache__` or some Just-in-Time (JIT) compilation artifact could 
 
 Exact same results (sometimes not even allowing for numerical discrepancies) is something that in the past was important for me. Hence I wanted to test what is needed to migrate while not having changes in behavior, this introduced a few quirks in the code, but showcases that for now, a few different behaviors can surface between FireDucks and Pandas, those are minor from what I noted.
 
+Due to the comparison with polars not being so straightforward, conversion to pandas is sometimes used to avoid leaving gaps in the comparisons. While this makes the comparison unfair for polars on a naive interpretation, the current (unmentioned results) makes this fact relatively indifferent for any practical purposes.
+
 # Contributing
 
 Pull requests are welcome, so are issues. Notice that most scripts are deliberately made to crash in cases of errors, so that these are solved instead of reported as errors while tainting the statistics comparison.
