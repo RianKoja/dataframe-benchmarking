@@ -34,7 +34,8 @@ def time_operation(
 
     # Save result to parquet file and compute hash
     result_hash = None
-    assert result is not None, "Can't allow any failure"
+    if result is None:
+        raise ValueError("Operation returned None, which is not allowed.")
 
     # Create outputs/results directory if it doesn't exist
     results_dir = "outputs/results"
