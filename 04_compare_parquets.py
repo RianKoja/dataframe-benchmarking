@@ -92,8 +92,8 @@ def compare_dataframes(df1, df2, label1, label2):
                     if not diff.empty:
                         print("\nDetailed comparison (first 5 rows):")
                         print(diff.head().to_markdown())
-        except Exception:
-            pass  # Skip detailed comparison if it fails
+        except Exception as detailed_e:
+            print(f"\nWarning: Could not generate detailed comparison: {detailed_e}")
 
         print()
         return False
