@@ -215,7 +215,6 @@ def run_benchmarks(
         df = result_pl.to_pandas()
 
         # Create the MultiIndex structure that pandas groupby produces
-        import pandas as pd
 
         # Reshape data to match pandas multi-level column format
         data = {}
