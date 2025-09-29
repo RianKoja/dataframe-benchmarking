@@ -50,7 +50,7 @@ run_python_profiled() {
 }
 
 # Clean up previous results:
-rm -rf artifacts/* data/* outputs/* ___pycache__
+rm -rf artifacts/* data/* outputs/* __pycache__
 mkdir -p artifacts  data outputs
 
 # Set up environment
@@ -69,7 +69,7 @@ uv pip compile requirements.in | uv pip sync -
 echo "Running code quality checks..."
 ruff format .
 ruff check . --select E,F,I --fix
-uvx ty check .
+ty check .
 
 
 # Check if input data exists, else create it

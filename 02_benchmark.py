@@ -22,7 +22,7 @@ if "fireducks" in sys.argv:
 
     framework = "fireducks"
 
-elif "pandas" in sys.argv or True:
+elif "pandas" in sys.argv:
     import pandas as df_lib
 
     framework = "pandas"
@@ -31,7 +31,7 @@ else:
     raise ValueError("Please specify 'pandas' or 'fireducks' as argument")
 
 
-def run_benchmarks(use_cache: bool = False) -> List[Dict[str, Any]]:
+def run_benchmarks() -> List[Dict[str, Any]]:
     """Run comprehensive benchmarks"""
     results = []
 

@@ -462,20 +462,6 @@ def save_results_to_files(tables: Dict[str, Any]) -> None:
         print("✓ Saved hash comparison to outputs/hash_comparison.csv")
 
 
-def display_summary_statistics_for_ci(output_dir: Path) -> None:
-    """Display summary statistics markdown for CI/GitHub Actions"""
-    
-    summary_file = output_dir / "summary_statistics.md"
-    if summary_file.exists():
-        print(f"\n{'=' * 80}")
-        print("SUMMARY STATISTICS (for CI)")
-        print("=" * 80)
-        with open(summary_file, "r") as f:
-            print(f.read())
-    else:
-        print("Summary statistics markdown file not found.")
-
-
 def main() -> None:
     """Main analysis function"""
 
@@ -499,11 +485,6 @@ def main() -> None:
 
     # Save results to files
     save_results_to_files(tables)
-
-    # Display summary statistics for CI if in GitHub Actions
-    import os
-    if os.getenv('GITHUB_ACTIONS') == 'true':
-        display_summary_statistics_for_ci(Path("outputs"))
 
     print(f"\n{'=' * 80}")
     print("ANALYSIS COMPLETE")
