@@ -42,7 +42,7 @@ def run_benchmarks(
         time_operation(
             "basic_filtering",
             pl,
-            lambda: customers.filter(pl.col("age") > 30).to_pandas(),
+            lambda: customers.filter(pl.col("age") > 30),
         )
     )
 
