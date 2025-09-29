@@ -49,6 +49,10 @@ run_python_profiled() {
     run_timed "$name" "$full_cmd"
 }
 
+# Clean up previous results:
+rm -rf artifacts/* data/* outputs/* ___pycache__
+mkdir -p artifacts  data outputs
+
 # Set up environment
 echo "Setting up virtual environment..."
 uv venv 
@@ -67,8 +71,6 @@ ruff format .
 ruff check . --select E,F,I --fix
 uvx ty check .
 
-# Clean up previous results:
-rm -rf artifacts/* data/* outputs/* ___pycache__
 
 # Check if input data exists, else create it
 if [ ! -d "data" ] || [ -z "$(ls -A data 2>/dev/null)" ]; then
