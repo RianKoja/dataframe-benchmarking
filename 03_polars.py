@@ -137,8 +137,8 @@ def run_benchmarks(
 
     results.append(time_operation("four_table_join", pl, four_table_join_polars))
 
-    # Window functions
-    def window_functions_polars():
+    # groupby-dense-rank
+    def groupby_dense_rank_polars():
         # Use Polars native window functions.
         # Cast rank to float to match pandas output dtype.
         result = orders.with_columns(
@@ -151,7 +151,23 @@ def run_benchmarks(
         )
         return result
 
-    results.append(time_operation("window_functions", pl, window_functions_polars))
+    results.append(time_operation("groupby-dense-rank", pl, groupby_dense_rank_polars))
+
+    # groupby-first-rank
+    def groupby_first_rank_polars():
+        # Use Polars native window functions with first ranking method.
+        # Cast rank to float to match pandas output dtype.
+        result = orders.with_columns(
+            pl.col("total_amount").cum_sum().over("customer_id").alias("running_total"),
+            pl.col("total_amount")
+            .rank(method="ordinal")
+            .over("customer_id")
+            .cast(pl.Float64)
+            .alias("rank"),
+        )
+        return result
+
+    results.append(time_operation("groupby-first-rank", pl, groupby_first_rank_polars))
 
     # String operations
     def string_operations_polars():

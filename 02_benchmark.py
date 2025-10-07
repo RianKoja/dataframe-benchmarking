@@ -123,14 +123,26 @@ def run_benchmarks() -> List[Dict[str, Any]]:
         )
     )
 
-    # Window functions
+    # groupby-dense-rank
     results.append(
         time_operation(
-            "window_functions",
+            "groupby-dense-rank",
             df_lib,
             lambda: orders.assign(
                 running_total=orders.groupby("customer_id")["total_amount"].cumsum(),
                 rank=orders.groupby("customer_id")["total_amount"].rank(method="dense"),
+            ),
+        )
+    )
+
+    # groupby-first-rank
+    results.append(
+        time_operation(
+            "groupby-first-rank",
+            df_lib,
+            lambda: orders.assign(
+                running_total=orders.groupby("customer_id")["total_amount"].cumsum(),
+                rank=orders.groupby("customer_id")["total_amount"].rank(method="first"),
             ),
         )
     )
