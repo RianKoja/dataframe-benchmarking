@@ -21,7 +21,9 @@ def time_operation(
     start_time = time.perf_counter()
     result = func(*args, **kwargs)
     # Force evaluation for lazy operations
-    if hasattr(result, "compute"):
+    if hasattr(result, "_evaluate"):
+        result = result._evaluate()
+    elif hasattr(result, "compute"):
         result = result.compute()
     elif hasattr(result, "values"):
         _ = result.values  # Access values to force computation
