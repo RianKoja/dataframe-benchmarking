@@ -38,8 +38,9 @@ jobs:
           echo ""
           echo "Attempt $attempt:"
           
-          # Get current Python version
-          current_version=$(uv python list | grep -E '^\s*cpython' | grep -v 'pypy' | head -n1 | awk '{print $2}' | sed 's/cpython-//')
+          # Get current Python version from uv python list
+          # Format: "cpython-3.14.0-linux-x86_64-gnu    /path/to/python3.14"
+          current_version=$(uv python list | grep -E 'cpython-[0-9]+\.[0-9]+' | grep -v 'pypy' | head -n1 | awk '{print $1}' | sed 's/cpython-//' | cut -d'-' -f1)
           echo "Testing Python $current_version..."
           
           # Try to compile and sync requirements
