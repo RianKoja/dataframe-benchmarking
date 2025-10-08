@@ -25,7 +25,59 @@ jobs:
         cache-dependency-glob: "requirements.in"
 
     - name: Set up Python
-      run: uv python install
+      run: |
+        # Automatically detect compatible Python version by testing dependency installation
+        # Try default latest Python first, then downgrade up to 2 times if needed
+        
+        echo "Attempting to find compatible Python version..."
+        
+        # Try installing default/latest Python
+        uv python install
+        
+        for attempt in 1 2 3; do
+          echo ""
+          echo "Attempt $attempt:"
+          
+          # Get current Python version
+          current_version=$(uv python list | grep -E '^\s*cpython' | grep -v 'pypy' | head -n1 | awk '{print $2}' | sed 's/cpython-//')
+          echo "Testing Python $current_version..."
+          
+          # Try to compile and sync requirements
+          if uv pip compile requirements.in 2>/dev/null | uv pip sync - 2>/dev/null; then
+            echo "✓ Python $current_version is compatible with all frameworks"
+            echo "PYTHON_VERSION=$current_version" >> $GITHUB_ENV
+            break
+          else
+            echo "✗ Python $current_version: dependency installation failed"
+            
+            if [ $attempt -lt 3 ]; then
+              # Parse version and downgrade
+              major=$(echo "$current_version" | cut -d. -f1)
+              minor=$(echo "$current_version" | cut -d. -f2)
+              
+              # Downgrade minor version
+              new_minor=$((minor - 1))
+              
+              if [ $new_minor -ge 10 ]; then
+                new_version="$major.$new_minor"
+                echo "Downgrading to Python $new_version..."
+                
+                # Uninstall current version and install downgraded version
+                uv python uninstall "$current_version" 2>/dev/null || true
+                uv python install "$new_version"
+              else
+                echo "Cannot downgrade further (reached Python 3.10)"
+                exit 1
+              fi
+            else
+              echo "Error: No compatible Python version found after 3 attempts"
+              exit 1
+            fi
+          fi
+        done
+        
+        echo ""
+        echo "Using Python $PYTHON_VERSION"
 
     - name: Install system dependencies
       run: |
