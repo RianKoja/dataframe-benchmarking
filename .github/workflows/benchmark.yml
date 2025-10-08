@@ -50,16 +50,13 @@ jobs:
           
           # Try to compile requirements (capture output separately for error reporting)
           compile_output=$(mktemp)
+          success=false
           if uv pip compile requirements.in > /tmp/requirements-$attempt.txt 2>"$compile_output"; then
             # Compile succeeded, now try to sync
             if uv pip sync /tmp/requirements-$attempt.txt 2>&1; then
               echo "✓ Python $test_version is compatible with all frameworks"
               echo "PYTHON_VERSION=$test_version" >> $GITHUB_ENV
-              # Clean up
-              deactivate 2>/dev/null || true
-              rm -rf "$test_venv"
-              rm -f "$compile_output"
-              break
+              success=true
             else
               echo "✗ Python $test_version: pip sync failed"
             fi
@@ -67,14 +64,21 @@ jobs:
             echo "✗ Python $test_version: dependency compilation failed"
           fi
           
-          # Show the error for debugging
-          echo "Error output:"
-          cat "$compile_output" 2>/dev/null || true
+          # Show the error for debugging if failed
+          if [ "$success" = false ]; then
+            echo "Error output:"
+            cat "$compile_output" 2>/dev/null || true
+          fi
           
           # Clean up test venv
           deactivate 2>/dev/null || true
           rm -rf "$test_venv"
           rm -f "$compile_output"
+          
+          # If successful, we're done
+          if [ "$success" = true ]; then
+            break
+          fi
           
           # If not the last attempt, try downgrading
           if [ $attempt -lt 3 ]; then
@@ -113,6 +117,13 @@ jobs:
       run: |
         # Make run.sh executable
         chmod +x run.sh
+        
+        # Set Python version for run.sh to use
+        # If PYTHON_VERSION was set by the setup step, pin it
+        if [ -n "$PYTHON_VERSION" ]; then
+          export UV_PYTHON="$PYTHON_VERSION"
+          echo "Using Python $PYTHON_VERSION for benchmark suite"
+        fi
         
         # Run the benchmark suite
         bash run.sh
