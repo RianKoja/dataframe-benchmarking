@@ -43,12 +43,14 @@ jobs:
           echo "Testing Python $current_version..."
           
           # Try to compile and sync requirements
-          if uv pip compile requirements.in 2>/dev/null | uv pip sync - 2>/dev/null; then
+          # Both compile and sync must succeed for compatibility
+          if uv pip compile requirements.in > /tmp/requirements.txt 2>&1 && uv pip sync /tmp/requirements.txt 2>&1; then
             echo "✓ Python $current_version is compatible with all frameworks"
             echo "PYTHON_VERSION=$current_version" >> $GITHUB_ENV
             break
           else
             echo "✗ Python $current_version: dependency installation failed"
+            cat /tmp/requirements.txt 2>/dev/null || true
             
             if [ $attempt -lt 3 ]; then
               # Parse version and downgrade
