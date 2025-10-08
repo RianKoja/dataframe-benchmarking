@@ -43,27 +43,29 @@ jobs:
           echo "Testing Python $test_version..."
           
           # Create a temporary virtual environment with the specific Python version
-          uv venv --python "$test_version" /tmp/test-venv-$$ 2>&1
-          source /tmp/test-venv-$$/bin/activate
+          # Use attempt number to avoid path collisions
+          test_venv="/tmp/test-venv-attempt-$attempt-$$"
+          uv venv --python "$test_version" "$test_venv" 2>&1
+          source "$test_venv/bin/activate"
           
           # Try to compile and sync requirements
           # Both compile and sync must succeed for compatibility
-          if uv pip compile requirements.in > /tmp/requirements.txt 2>&1 && uv pip sync /tmp/requirements.txt 2>&1; then
+          if uv pip compile requirements.in > /tmp/requirements-$attempt.txt 2>&1 && uv pip sync /tmp/requirements-$attempt.txt 2>&1; then
             echo "✓ Python $test_version is compatible with all frameworks"
             echo "PYTHON_VERSION=$test_version" >> $GITHUB_ENV
             # Clean up test venv
             deactivate 2>/dev/null || true
-            rm -rf /tmp/test-venv-$$
+            rm -rf "$test_venv"
             break
           else
             echo "✗ Python $test_version: dependency installation failed"
             # Show the error for debugging
             echo "Compile output:"
-            cat /tmp/requirements.txt 2>/dev/null || true
+            cat /tmp/requirements-$attempt.txt 2>/dev/null || true
             
             # Clean up test venv
             deactivate 2>/dev/null || true
-            rm -rf /tmp/test-venv-$$
+            rm -rf "$test_venv"
             
             if [ $attempt -lt 3 ]; then
               # Parse version and downgrade
