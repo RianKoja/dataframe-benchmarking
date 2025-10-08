@@ -48,24 +48,33 @@ jobs:
           uv venv --python "$test_version" "$test_venv" 2>&1
           source "$test_venv/bin/activate"
           
-          # Try to compile and sync requirements
-          # Both compile and sync must succeed for compatibility
-          if uv pip compile requirements.in > /tmp/requirements-$attempt.txt 2>&1 && uv pip sync /tmp/requirements-$attempt.txt 2>&1; then
-            echo "✓ Python $test_version is compatible with all frameworks"
-            echo "PYTHON_VERSION=$test_version" >> $GITHUB_ENV
-            # Clean up test venv
-            deactivate 2>/dev/null || true
-            rm -rf "$test_venv"
-            break
+          # Try to compile requirements (capture output separately for error reporting)
+          compile_output=$(mktemp)
+          if uv pip compile requirements.in > /tmp/requirements-$attempt.txt 2>"$compile_output"; then
+            # Compile succeeded, now try to sync
+            if uv pip sync /tmp/requirements-$attempt.txt 2>&1; then
+              echo "✓ Python $test_version is compatible with all frameworks"
+              echo "PYTHON_VERSION=$test_version" >> $GITHUB_ENV
+              # Clean up
+              deactivate 2>/dev/null || true
+              rm -rf "$test_venv"
+              rm -f "$compile_output"
+              break
+            else
+              echo "✗ Python $test_version: pip sync failed"
+            fi
           else
-            echo "✗ Python $test_version: dependency installation failed"
-            # Show the error for debugging
-            echo "Compile output:"
-            cat /tmp/requirements-$attempt.txt 2>/dev/null || true
-            
-            # Clean up test venv
-            deactivate 2>/dev/null || true
-            rm -rf "$test_venv"
+            echo "✗ Python $test_version: dependency compilation failed"
+          fi
+          
+          # Show the error for debugging
+          echo "Error output:"
+          cat "$compile_output" 2>/dev/null || true
+          
+          # Clean up test venv
+          deactivate 2>/dev/null || true
+          rm -rf "$test_venv"
+          rm -f "$compile_output"
             
             if [ $attempt -lt 3 ]; then
               # Parse version and downgrade
