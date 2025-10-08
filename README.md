@@ -22,4 +22,4 @@ Due to the comparison with polars not being so straightforward, conversion to pa
 
 # Contributing
 
-Pull requests are welcome, so are issues. Notice that most scripts are deliberately made to crash in cases of errors, so that these are solved instead of reported as errors while tainting the statistics comparison.
+Pull requests and issues are welcome. Note that scripts are designed to crash on error to ensure problems are fixed, preventing skewed statistical comparisons.
