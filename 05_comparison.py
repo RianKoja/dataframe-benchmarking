@@ -111,13 +111,23 @@ def create_comparison_tables(
     for key, df in results.items():
         df_copy = df.copy()
 
-        # Parse framework and cache info from filename
-        parts = key.split("_")
-        framework = parts[0]
-        cache_status = "cache" if "cache" in parts else "no_cache"
+        # Use the cache_used column from the data if it exists
+        # Otherwise parse from filename (backwards compatibility)
+        if "cache_used" in df_copy.columns:
+            df_copy["cache_status"] = df_copy["cache_used"].map(
+                {True: "cache", False: "no_cache"}
+            )
+        else:
+            # Parse framework and cache info from filename
+            parts = key.split("_")
+            cache_status = "cache" if key.endswith("cache") else "no_cache"
+            df_copy["cache_status"] = cache_status
 
-        df_copy["framework"] = framework
-        df_copy["cache_status"] = cache_status
+        # Parse framework from filename if not in data
+        if "framework" not in df_copy.columns:
+            parts = key.split("_")
+            df_copy["framework"] = parts[0]
+
         all_results.append(df_copy)
 
     if not all_results:
@@ -412,11 +422,18 @@ def generate_summary_statistics_markdown(summary_stats: pd.DataFrame) -> str:
     markdown += "- **max**: Slowest operation time (seconds)\n"
     markdown += "- **sum**: Total execution time for all operations (seconds)\n\n"
 
-    # Add ranking based on mean performance
-    mean_times = summary_stats.groupby("framework")["mean"].mean().sort_values()
+    # Add ranking based on mean performance for both cache configurations
     markdown += "## Performance Ranking (by average execution time)\n\n"
-    for i, (framework, avg_time) in enumerate(mean_times.items(), 1):
-        markdown += f"{i}. **{framework}**: {avg_time:.4f} seconds\n"
+
+    # Sort by mean execution time, keeping both framework and cache_status
+    # Reset index to make framework and cache_status regular columns for sorting
+    sorted_stats = summary_stats.reset_index().sort_values("mean")
+
+    for i, row in enumerate(sorted_stats.itertuples(), 1):
+        framework = row.framework
+        cache_status = row.cache_status
+        avg_time = row.mean
+        markdown += f"{i}. **{framework}** ({cache_status}): {avg_time:.4f} seconds\n"
 
     return markdown
 
