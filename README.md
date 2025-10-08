@@ -11,7 +11,7 @@ This readme does not mention which tool performed the best, as the repo is desig
 
 With [uv](https://docs.astral.sh/uv/) installed, run the command `bash run.sh`.
 
-There is a GitHub Action that executes it and provides artifacts for analysis. If deailed analysis is warranted, or to alleviate comparison burden effect, notice that [pyinstrument](https://pyinstrument.readthedocs.io/en/latest/) reports are available on the artifacts.
+A GitHub Action executes the benchmarks and provides artifacts for analysis, including [pyinstrument](https://pyinstrument.readthedocs.io/en/latest/) reports for detailed analysis.
 
 # Other notes:
 I suspected `__pycache__` or some Just-in-Time (JIT) compilation artifact could have an impact on performance. Removing the `__pycache__` folder could help with the former, but other than repeating operations, I don't see a proper way of testing the latter.
@@ -22,4 +22,4 @@ Due to the comparison with polars not being so straightforward, conversion to pa
 
 # Contributing
 
-Pull requests are welcome, so are issues. Notice that most scripts are deliberately made to crash in cases of errors, so that these are solved instead of reported as errors while tainting the statistics comparison.
+Pull requests and issues are welcome. Note that scripts are designed to crash on error to ensure problems are fixed, preventing skewed statistical comparisons.
