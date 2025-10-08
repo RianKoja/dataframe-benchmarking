@@ -34,30 +34,29 @@ jobs:
         # Try installing default/latest Python
         uv python install
         
+        # Get the initial version that was installed
+        test_version=$(uv python list | grep -E 'cpython-[0-9]+\.[0-9]+' | grep -v 'pypy' | head -n1 | awk '{print $1}' | sed 's/cpython-//' | cut -d'-' -f1)
+        
         for attempt in 1 2 3; do
           echo ""
           echo "Attempt $attempt:"
+          echo "Testing Python $test_version..."
           
-          # Get current Python version from uv python list (re-read each iteration)
-          # Format: "cpython-3.14.0-linux-x86_64-gnu    /path/to/python3.14"
-          current_version=$(uv python list | grep -E 'cpython-[0-9]+\.[0-9]+' | grep -v 'pypy' | head -n1 | awk '{print $1}' | sed 's/cpython-//' | cut -d'-' -f1)
-          echo "Testing Python $current_version..."
-          
-          # Create a temporary virtual environment with the current Python version
-          uv venv --python "$current_version" /tmp/test-venv-$$ 2>&1
+          # Create a temporary virtual environment with the specific Python version
+          uv venv --python "$test_version" /tmp/test-venv-$$ 2>&1
           source /tmp/test-venv-$$/bin/activate
           
           # Try to compile and sync requirements
           # Both compile and sync must succeed for compatibility
           if uv pip compile requirements.in > /tmp/requirements.txt 2>&1 && uv pip sync /tmp/requirements.txt 2>&1; then
-            echo "✓ Python $current_version is compatible with all frameworks"
-            echo "PYTHON_VERSION=$current_version" >> $GITHUB_ENV
+            echo "✓ Python $test_version is compatible with all frameworks"
+            echo "PYTHON_VERSION=$test_version" >> $GITHUB_ENV
             # Clean up test venv
             deactivate 2>/dev/null || true
             rm -rf /tmp/test-venv-$$
             break
           else
-            echo "✗ Python $current_version: dependency installation failed"
+            echo "✗ Python $test_version: dependency installation failed"
             # Show the error for debugging
             echo "Compile output:"
             cat /tmp/requirements.txt 2>/dev/null || true
@@ -68,19 +67,18 @@ jobs:
             
             if [ $attempt -lt 3 ]; then
               # Parse version and downgrade
-              major=$(echo "$current_version" | cut -d. -f1)
-              minor=$(echo "$current_version" | cut -d. -f2)
+              major=$(echo "$test_version" | cut -d. -f1)
+              minor=$(echo "$test_version" | cut -d. -f2)
               
               # Downgrade minor version
               new_minor=$((minor - 1))
               
               if [ $new_minor -ge 10 ]; then
-                new_version="$major.$new_minor"
-                echo "Downgrading to Python $new_version..."
+                test_version="$major.$new_minor"
+                echo "Downgrading to Python $test_version..."
                 
-                # Uninstall current version and install downgraded version
-                uv python uninstall "$current_version" 2>/dev/null || true
-                uv python install "$new_version"
+                # Install downgraded version
+                uv python install "$test_version"
               else
                 echo "Cannot downgrade further (reached Python 3.10)"
                 exit 1
