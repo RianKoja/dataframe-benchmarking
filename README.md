@@ -11,7 +11,7 @@ This readme does not mention which tool performed the best, as the repo is desig
 
 With [uv](https://docs.astral.sh/uv/) installed, run the command `bash run.sh`.
 
-There is a GitHub Action that executes it and provides artifacts for analysis. If deailed analysis is warranted, or to alleviate comparison burden effect, notice that [pyinstrument](https://pyinstrument.readthedocs.io/en/latest/) reports are available on the artifacts.
+There is a GitHub Action that executes it and provides artifacts for analysis. If detailed analysis is warranted, or to alleviate comparison burden effect, notice that [pyinstrument](https://pyinstrument.readthedocs.io/en/latest/) reports are available on the artifacts.
 
 # Other notes:
 I suspected `__pycache__` or some Just-in-Time (JIT) compilation artifact could have an impact on performance. Removing the `__pycache__` folder could help with the former, but other than repeating operations, I don't see a proper way of testing the latter.
