@@ -38,20 +38,33 @@ jobs:
           echo ""
           echo "Attempt $attempt:"
           
-          # Get current Python version from uv python list
+          # Get current Python version from uv python list (re-read each iteration)
           # Format: "cpython-3.14.0-linux-x86_64-gnu    /path/to/python3.14"
           current_version=$(uv python list | grep -E 'cpython-[0-9]+\.[0-9]+' | grep -v 'pypy' | head -n1 | awk '{print $1}' | sed 's/cpython-//' | cut -d'-' -f1)
           echo "Testing Python $current_version..."
+          
+          # Create a temporary virtual environment with the current Python version
+          uv venv --python "$current_version" /tmp/test-venv-$$ 2>&1
+          source /tmp/test-venv-$$/bin/activate
           
           # Try to compile and sync requirements
           # Both compile and sync must succeed for compatibility
           if uv pip compile requirements.in > /tmp/requirements.txt 2>&1 && uv pip sync /tmp/requirements.txt 2>&1; then
             echo "✓ Python $current_version is compatible with all frameworks"
             echo "PYTHON_VERSION=$current_version" >> $GITHUB_ENV
+            # Clean up test venv
+            deactivate 2>/dev/null || true
+            rm -rf /tmp/test-venv-$$
             break
           else
             echo "✗ Python $current_version: dependency installation failed"
+            # Show the error for debugging
+            echo "Compile output:"
             cat /tmp/requirements.txt 2>/dev/null || true
+            
+            # Clean up test venv
+            deactivate 2>/dev/null || true
+            rm -rf /tmp/test-venv-$$
             
             if [ $attempt -lt 3 ]; then
               # Parse version and downgrade
