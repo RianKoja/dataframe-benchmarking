@@ -199,14 +199,6 @@ jobs:
         Workflow: $GITHUB_RUN_ID
         EOF
 
-    - name: Upload benchmark results
-      uses: actions/upload-artifact@v4
-      with:
-        name: benchmark-results-${{ github.run_id }}
-        path: benchmark-results/
-        retention-days: 30
-        compression-level: 6
-
     - name: Upload profiling reports
       uses: actions/upload-artifact@v4
       with:
