@@ -5,6 +5,49 @@ from datetime import datetime
 from typing import Any, Callable, Dict
 
 
+def normalize_result(result: Any) -> Any:
+    """
+    Normalize the result DataFrame to ensure consistent format across frameworks.
+    - Resets index (moving index to columns)
+    - Flattens MultiIndex columns
+    """
+    # Check if it looks like a pandas/fireducks DataFrame
+    if (
+        hasattr(result, "index")
+        and hasattr(result, "columns")
+        and hasattr(result, "reset_index")
+    ):
+        # 1. Reset index if it's not a RangeIndex
+        # This moves grouping keys from index to columns
+        is_range_index = False
+        # Check for RangeIndex (has start/stop/step attributes)
+        if (
+            hasattr(result.index, "start")
+            and hasattr(result.index, "stop")
+            and hasattr(result.index, "step")
+        ):
+            is_range_index = True
+
+        if not is_range_index:
+            result = result.reset_index()
+
+        # 2. Flatten MultiIndex columns
+        # Check if columns is a MultiIndex (has nlevels > 1)
+        if hasattr(result.columns, "nlevels") and result.columns.nlevels > 1:
+            new_columns = []
+            for col in result.columns.values:
+                if isinstance(col, tuple):
+                    # Join non-empty parts with underscore
+                    # E.g. ('total_amount', 'sum') -> 'total_amount_sum'
+                    name = "_".join([str(c) for c in col if str(c) != ""]).strip("_")
+                    new_columns.append(name)
+                else:
+                    new_columns.append(str(col))
+            result.columns = new_columns
+
+    return result
+
+
 def time_operation(
     operation_name: str,
     df_lib: Any,
@@ -48,6 +91,14 @@ def time_operation(
 
     if hasattr(result, "to_frame"):
         result = result.to_frame(name=operation_name)
+
+    # Normalize result (reset index, flatten columns) before saving
+    # This ensures consistency between Pandas (which uses Index/MultiIndex)
+    # and Polars (which uses flat DataFrames)
+    try:
+        result = normalize_result(result)
+    except Exception as e:
+        print(f"Warning: Failed to normalize result for {operation_name}: {e}")
 
     if hasattr(result, "to_parquet"):
         result.to_parquet(output_filename, index=False)
