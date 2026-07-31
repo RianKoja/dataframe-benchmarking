@@ -410,7 +410,7 @@ def generate_summary_statistics_markdown(summary_stats: pd.DataFrame) -> str:
     markdown += "## Framework Performance Overview\n\n"
 
     # Convert to markdown table
-    markdown += summary_stats.to_markdown() + "\n\n"
+    markdown += f"{summary_stats.to_markdown()}\n\n"
 
     # Add some interpretation
     markdown += "## Key Metrics Explanation\n\n"
@@ -429,11 +429,11 @@ def generate_summary_statistics_markdown(summary_stats: pd.DataFrame) -> str:
     # Reset index to make framework and cache_status regular columns for sorting
     sorted_stats = summary_stats.reset_index().sort_values("mean")
 
-    for i, row in enumerate(sorted_stats.itertuples(), 1):
-        framework = row.framework
-        cache_status = row.cache_status
-        avg_time = row.mean
-        markdown += f"{i}. **{framework}** ({cache_status}): {avg_time:.4f} seconds\n"
+    for i, row in enumerate(sorted_stats.to_dict("records"), 1):
+        markdown += (
+            f"{i}. **{row['framework']}** ({row['cache_status']}): "
+            f"{row['mean']:.4f} seconds\n"
+        )
 
     return markdown
 
