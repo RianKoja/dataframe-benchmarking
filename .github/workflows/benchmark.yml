@@ -29,7 +29,7 @@ jobs:
         # fireducks is the framework that lags newest CPython, so its published
         # wheels decide the version: take the highest cp3XX Linux wheel tag of
         # the latest fireducks release. Auto-adopts 3.14+ once fireducks ships it.
-        minor=$(curl -sSf https://pypi.org/pypi/fireducks/json \
+        minor=$(curl -sSf --max-time 30 --retry 2 https://pypi.org/pypi/fireducks/json \
           | jq -r '.urls[].filename
                    | select(test("manylinux"))
                    | capture("-cp3(?<m>[0-9]+)-").m' \
