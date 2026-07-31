@@ -102,11 +102,13 @@ def run_benchmarks() -> List[Dict[str, Any]]:
         time_operation(
             "complex_multi_join",
             df_lib,
-            lambda: orders.merge(customers, on="customer_id")
-            .merge(order_items, on="order_id")
-            .merge(products, on="product_id")
-            .sort_values(["order_id", "order_item_id"])
-            .reset_index(drop=True),
+            lambda: (
+                orders.merge(customers, on="customer_id")
+                .merge(order_items, on="order_id")
+                .merge(products, on="product_id")
+                .sort_values(["order_id", "order_item_id"])
+                .reset_index(drop=True)
+            ),
         )
     )
 
@@ -114,12 +116,14 @@ def run_benchmarks() -> List[Dict[str, Any]]:
         time_operation(
             "four_table_join",
             df_lib,
-            lambda: customers.merge(orders, on="customer_id")
-            .merge(order_items, on="order_id")
-            .merge(products, on="product_id")
-            .merge(reviews, on=["customer_id", "product_id"])
-            .sort_values("customer_id")
-            .reset_index(drop=True),
+            lambda: (
+                customers.merge(orders, on="customer_id")
+                .merge(order_items, on="order_id")
+                .merge(products, on="product_id")
+                .merge(reviews, on=["customer_id", "product_id"])
+                .sort_values("customer_id")
+                .reset_index(drop=True)
+            ),
         )
     )
 
@@ -272,10 +276,12 @@ def run_benchmarks() -> List[Dict[str, Any]]:
         time_operation(
             "conditional_join",
             df_lib,
-            lambda: customers.merge(orders, on="customer_id")
-            .query("age > 25 and total_amount > 100")
-            .sort_values("customer_id")
-            .reset_index(drop=True),
+            lambda: (
+                customers.merge(orders, on="customer_id")
+                .query("age > 25 and total_amount > 100")
+                .sort_values("customer_id")
+                .reset_index(drop=True)
+            ),
         )
     )
 
@@ -319,9 +325,13 @@ def run_benchmarks() -> List[Dict[str, Any]]:
         time_operation(
             "time_series_resample",
             df_lib,
-            lambda: time_series.set_index("date")
-            .resample("ME")
-            .agg({"sales": "sum", "marketing_spend": "sum", "website_visits": "mean"}),
+            lambda: (
+                time_series.set_index("date")
+                .resample("ME")
+                .agg(
+                    {"sales": "sum", "marketing_spend": "sum", "website_visits": "mean"}
+                )
+            ),
         )
     )
 

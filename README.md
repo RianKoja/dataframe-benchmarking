@@ -11,7 +11,9 @@ This readme does not mention which tool performed the best, as the repo is desig
 
 With [uv](https://docs.astral.sh/uv/) installed, run the command `bash run.sh`.
 
-A GitHub Action executes the benchmarks and provides artifacts for analysis, including [pyinstrument](https://pyinstrument.readthedocs.io/en/latest/) reports for detailed analysis.
+A GitHub Action executes the benchmarks and provides artifacts for analysis, including [pyinstrument](https://pyinstrument.readthedocs.io/en/latest/) reports for detailed analysis. It picks the newest Python version for which the latest FireDucks release publishes wheels, since FireDucks motivated this repo.
+
+Note that GitHub automatically disables scheduled workflows after 60 days without repository activity. When that happens the weekly run silently stops and has to be re-enabled manually, either from the Actions tab or with `gh workflow enable benchmark.yml`.
 
 # Other notes:
 I suspected `__pycache__` or some Just-in-Time (JIT) compilation artifact could have an impact on performance. Removing the `__pycache__` folder could help with the former, but other than repeating operations, I don't see a proper way of testing the latter.
