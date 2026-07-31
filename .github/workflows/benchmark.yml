@@ -16,10 +16,10 @@ jobs:
     
     steps:
     - name: Checkout code
-      uses: actions/checkout@v4
+      uses: actions/checkout@v7
 
     - name: Set up Python with uv
-      uses: astral-sh/setup-uv@v3
+      uses: astral-sh/setup-uv@v9
       with:
         enable-cache: true
         cache-dependency-glob: "requirements.in"
@@ -146,7 +146,7 @@ jobs:
         EOF
 
     - name: Upload profiling reports
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v7
       with:
         name: profiling-reports-${{ github.run_id }}
         path: outputs/pyinstrument/
